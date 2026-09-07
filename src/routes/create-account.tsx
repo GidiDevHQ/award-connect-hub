@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MobileShell } from "@/components/tian/mobile-shell";
 import { Field } from "@/components/tian/fields";
 import { StepHeader } from "@/components/tian/step-header";
+import { registerAccount } from "@/lib/api";
 import { updateProfile, useProfile } from "@/lib/tian-store";
 
 export const Route = createFileRoute("/create-account")({
@@ -23,7 +24,38 @@ function CreateAccount() {
   const profile = useProfile();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const valid = profile.fullName.trim().length > 1 && profile.email.includes("@") && password.length >= 8;
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!valid) return;
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      await registerAccount({
+        fullName: profile.fullName,
+        email: profile.email,
+        password,
+        username: profile.username || undefined,
+        country: profile.country || undefined,
+        role: profile.role ? profile.role.toUpperCase().replace(/-/g, "_") : undefined,
+        awardLevel: profile.level ? profile.level.toUpperCase() : undefined,
+        centre: profile.centre || undefined,
+        headline: profile.headline || undefined,
+        bio: profile.bio || undefined,
+      });
+
+      navigate({ to: "/account-setup" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <MobileShell tone="white">
@@ -35,13 +67,7 @@ function CreateAccount() {
         </Button>
       </header>
 
-      <form
-        className="flex flex-1 flex-col px-6 pb-8 pt-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) navigate({ to: "/account-setup" });
-        }}
-      >
+      <form className="flex flex-1 flex-col px-6 pb-8 pt-4" onSubmit={handleSubmit}>
         <StepHeader
           step={1}
           total={3}
@@ -79,9 +105,11 @@ function CreateAccount() {
           />
         </div>
 
+        {error ? <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
         <div className="mt-auto space-y-3 pt-8">
-          <Button type="submit" variant="hero" size="pill" disabled={!valid}>
-            Continue
+          <Button type="submit" variant="hero" size="pill" disabled={!valid || submitting}>
+            {submitting ? "Creating account..." : "Continue"}
           </Button>
           <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
             By continuing you agree to the TIAN Community Guidelines and Privacy Policy.
