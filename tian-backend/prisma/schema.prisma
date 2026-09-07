@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PARTICIPANT
+  AWARD_LEADER
+  ASSESSOR
+  ALUMNI
+  CENTRE
+  UNIVERSITY
+}
+
+enum AwardLevel {
+  BRONZE
+  SILVER
+  GOLD
+  COMPLETED
+  NONE
+}
+
+enum CommunityCategory {
+  LEADERSHIP
+  EXPEDITIONS
+  ALUMNI
+  STUDY
+  SUSTAINABILITY
+  CENTRES
+  TECHNOLOGY
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum StatusKind {
+  TEXT
+  PHOTO
+  VIDEO
+}
+
+model User {
+  id           String          @id @default(cuid())
+  fullName     String
+  email        String          @unique
+  passwordHash String
+  username     String?         @unique
+  country      String?
+  role         UserRole?
+  awardLevel   AwardLevel?
+  centre       String?
+  headline     String?
+  bio          String?
+  avatarUrl    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  interests    UserInterest[]
+  communities  CommunityMember[]
+  sentMessages Message[]        @relation("MessageSenderRelation")
+  chats        ChatParticipant[]
+  statuses     Status[]
+  posts        Post[]
+  reactions    PostReaction[]
+  comments     Comment[]
+}
+
+model UserInterest {
+  id     String @id @default(cuid())
+  userId String
+  value  String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, value])
+}
+
+model Community {
+  id            String               @id @default(cuid())
+  name          String
+  handle        String               @unique
+  category      CommunityCategory
+  description   String
+  membersCount  Int                  @default(0)
+  coverUrl      String?
+  logoInitials  String?
+  rules         String[]
+  createdAt     DateTime             @default(now())
+
+  members       CommunityMember[]
+  moderators    CommunityModerator[]
+  posts         Post[]
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  userId      String
+  communityId String
+  joinedAt    DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+}
+
+model CommunityModerator {
+  id          String    @id @default(cuid())
+  communityId String
+  userId      String?
+  name        String
+  role        String
+  country     String
+
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id          String        @id @default(cuid())
+  communityId String
+  authorId    String
+  text        String
+  createdAt   DateTime      @default(now())
+
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reactions   PostReaction[]
+  comments    Comment[]
+  pollOptions PollOption[]
+}
+
+model PollOption {
+  id      String @id @default(cuid())
+  postId  String
+  label   String
+  votes   Int    @default(0)
+
+  post    Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model PostReaction {
+  id     String @id @default(cuid())
+  postId String
+  userId String
+  type   String
+
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Chat {
+  id          String            @id @default(cuid())
+  createdAt   DateTime          @default(now())
+  participants ChatParticipant[]
+  messages    Message[]
+}
+
+model ChatParticipant {
+  id      String @id @default(cuid())
+  chatId  String
+  userId  String
+  unread  Int    @default(0)
+
+  chat    Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model Message {
+  id       String        @id @default(cuid())
+  chatId   String
+  senderId String
+  body     String
+  sentAt   DateTime      @default(now())
+  status   MessageStatus @default(SENT)
+
+  chat     Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender   User          @relation("MessageSenderRelation", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Status {
+  id        String      @id @default(cuid())
+  authorId  String
+  createdAt DateTime    @default(now())
+
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  items     StatusItem[]
+}
+
+model StatusItem {
+  id         String     @id @default(cuid())
+  statusId   String
+  kind       StatusKind
+  src        String?
+  caption    String?
+  alt        String?
+  background String?
+
+  status     Status     @relation(fields: [statusId], references: [id], onDelete: Cascade)
+}
